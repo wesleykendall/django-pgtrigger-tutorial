@@ -79,16 +79,18 @@ WSGI_APPLICATION = 'tutorial.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/3.0/ref/settings/#databases
 
-DATABASES = pgconnection.configure({
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'postgres',
-        'USER': 'postgres',
-        'PASSWORD': 'postgres',
-        'HOST': 'db',
-        'PORT': 5432,
+DATABASES = pgconnection.configure(
+    {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': 'postgres',
+            'USER': 'postgres',
+            'PASSWORD': 'postgres',
+            'HOST': 'db',
+            'PORT': 5432,
+        }
     }
-})
+)
 
 
 # Password validation

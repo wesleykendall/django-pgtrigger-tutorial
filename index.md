@@ -63,7 +63,7 @@ import pgtrigger
 
 
 @pgtrigger.register(
-    pgtrigger.Protect(operation=pgtrigger.Delete)
+    pgtrigger.Protect(name='protect_deletes', operation=pgtrigger.Delete)
 )
 class CannotDelete(models.Model):
     """This model cannot be deleted.
@@ -114,7 +114,10 @@ import pgtrigger
 
 
 @pgtrigger.register(
-    pgtrigger.Protect(operation=(pgtrigger.Update | pgtrigger.Delete))
+    pgtrigger.Protect(
+      name='append_only',
+      operation=(pgtrigger.Update | pgtrigger.Delete)
+    )
 )
 class AppendOnly(models.Model):
     """This model can only be appended.
@@ -182,6 +185,7 @@ import pgtrigger
 
 @pgtrigger.register(
     pgtrigger.Protect(
+        name='read_only',
         operation=pgtrigger.Update,
         condition=pgtrigger.Q(old__created_at__df=pgtrigger.F('new__created_at'))
     )
@@ -246,6 +250,7 @@ to support it. For example, this condition will make `created_at` and
 
 @pgtrigger.register(
     pgtrigger.Protect(
+        name='multiple_read_only',
         operation=pgtrigger.Update,
         condition=(
             pgtrigger.Q(old__created_at__df=pgtrigger.F('new__created_at')) |
@@ -277,7 +282,11 @@ import pgtrigger
 
 
 @pgtrigger.register(
-    pgtrigger.SoftDelete(field='is_active', value=False)
+    pgtrigger.SoftDelete(
+        name='soft_delete',
+        field='is_active',
+        value=False
+    )
 )
 class SoftDelete(models.Model):
     """
@@ -350,11 +359,13 @@ import pgtrigger
 @pgtrigger.register(
     # Protect anyone editing the version field directly
     pgtrigger.Protect(
+        name='protect_version_edits',
         operation=pgtrigger.Update,
         condition=pgtrigger.Q(old__version__df=pgtrigger.F('new__version'))
     ),
     # Increment the version field on changes
     pgtrigger.Trigger(
+        name='versioned',
         when=pgtrigger.Before,
         operation=pgtrigger.Update,
         func='NEW.version = NEW.version + 1; RETURN NEW;',
@@ -535,6 +546,7 @@ import pgtrigger
 
 @pgtrigger.register(
     pgtrigger.FSM(
+        name='validate_status_transitions',
         field='status',
         transitions=(
             ('unpublished', 'published'),
