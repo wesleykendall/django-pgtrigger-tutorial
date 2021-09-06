@@ -453,36 +453,40 @@ The `pgtrigger.Protect` trigger used in combination with
 the `pgtrigger.ignore()` context manager / decorator can be used to
 accomplish this.
 
-For example, imagine we have an example model, and we want to ensure
-that the ``Example.objects.create_example()`` interface is the only
+For example, imagine we have an ``OfficialInterface`` model, and we want to ensure
+that the ``OfficialInterface.objects.official_create()`` interface is the only
 method that can be used to create our example model:
 
 ```python
 import pgtrigger
 
 
-class ExampleManager(models.Manager):
-    @pgtrigger.ignore('tutorial.Example:protect_inserts')
-    def create_example(self):
+class OfficialInterfaceManager(models.Manager):
+    @pgtrigger.ignore('tutorial.OfficialInterface:protect_inserts')
+    def official_create(
+        self,
+    ):
         return self.create()
 
 
 @pgtrigger.register(
-    pgtrigger.Protect(name='protect_inserts', operation=pgtrigger.Insert)
+    pgtrigger.Protect(
+        name='protect_inserts',
+        operation=pgtrigger.Insert,
+    )
 )
-class Example(models.Model):
+class OfficialInterface(models.Model):
     """
     This model has inserts protected and can only be created by
-    using the "create_example_model" function that dynamically ignores
-    execution of our protection trigger.
+    using OfficialInterface.objects.official_create()
     """
-    objects = ExampleManager()
 
+    objects = OfficialInterfaceManager()
 ```
 
-Let's try to create this model using the standard ``Example.objects.create()``
+Let's try to create this model using the standard ``OfficialInterface.objects.create()``
 method. It will result in an error, but we can create the object with
-our official ``Example.objects.create_example()`` interface:
+our official ``OfficialInterface.objects.official_create()`` interface:
 
 ```
 docker-compose run --rm app python manage.py shell_plus --quiet-load -c "
