@@ -103,7 +103,7 @@ trigger can reliably protect against operations you don't want to happen.
 
 ## Append-only models
 
-The `pgtrigger.Protect` trigger is useful for many more things that just protecting
+The `pgtrigger.Protect` trigger is useful for many more things than just protecting
 deletions. Depending on the combinations of operations and conditions, one
 can express many types of protections on models and fields.
 
