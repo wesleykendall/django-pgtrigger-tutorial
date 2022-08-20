@@ -5,26 +5,21 @@ import pghistory
 import pgtrigger
 
 
-@pgtrigger.register(
-    pgtrigger.Protect(
-        name='protect_deletes',
-        operation=pgtrigger.Delete,
-    )
-)
 class CannotDelete(models.Model):
     """This model cannot be deleted.
 
     The ``pgtrigger.Protect`` trigger protects the deletion operation
     from happening
     """
+    class Meta:
+        triggers = [
+            pgtrigger.Protect(
+                name='protect_deletes',
+                operation=pgtrigger.Delete,
+            )
+        ]
 
 
-@pgtrigger.register(
-    pgtrigger.Protect(
-        name='append_only',
-        operation=(pgtrigger.Update | pgtrigger.Delete),
-    )
-)
 class AppendOnly(models.Model):
     """This model can only be appended.
 
@@ -34,16 +29,15 @@ class AppendOnly(models.Model):
 
     int_field = models.IntegerField()
 
+    class Meta:
+        triggers = [
+            pgtrigger.Protect(
+                name='append_only',
+                operation=(pgtrigger.Update | pgtrigger.Delete),
+            )
+        ]
 
-@pgtrigger.register(
-    pgtrigger.Protect(
-        name='read_only_field',
-        operation=pgtrigger.Update,
-        condition=pgtrigger.Q(
-            old__created_at__df=pgtrigger.F("new__created_at")
-        ),
-    )
-)
+
 class ReadOnlyField(models.Model):
     """
     The "created_at" field cannot be updated (i.e. a read-only field).
@@ -55,14 +49,18 @@ class ReadOnlyField(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     int_field = models.IntegerField()
 
+    class Meta:
+        triggers = [
+            pgtrigger.Protect(
+                name='read_only_field',
+                operation=pgtrigger.Update,
+                condition=pgtrigger.Q(
+                    old__created_at__df=pgtrigger.F("new__created_at")
+                ),
+            )
+        ]
 
-@pgtrigger.register(
-    pgtrigger.SoftDelete(
-        name='soft_delete',
-        field='is_active',
-        value=False,
-    )
-)
+
 class SoftDelete(models.Model):
     """
     This model cannot be deleted. When a user tries to delete it, the
@@ -72,21 +70,16 @@ class SoftDelete(models.Model):
 
     is_active = models.BooleanField(default=True)
 
+    class Meta:
+        triggers = [
+            pgtrigger.SoftDelete(
+                name='soft_delete',
+                field='is_active',
+                value=False,
+            )
+        ]
 
-@pgtrigger.register(
-    pgtrigger.Protect(
-        name='protect_version_edits',
-        operation=pgtrigger.Update,
-        condition=pgtrigger.Q(old__version__df=pgtrigger.F('new__version')),
-    ),
-    pgtrigger.Trigger(
-        name='versioned',
-        when=pgtrigger.Before,
-        operation=pgtrigger.Update,
-        func='NEW.version = NEW.version + 1; RETURN NEW;',
-        condition=pgtrigger.Condition('OLD.* IS DISTINCT FROM NEW.*'),
-    ),
-)
+
 class Versioned(models.Model):
     """
     This model is versioned. The "version" field is incremented on every
@@ -95,6 +88,22 @@ class Versioned(models.Model):
 
     version = models.IntegerField(default=0)
     char_field = models.CharField(max_length=32)
+
+    class Meta:
+        triggers = [
+            pgtrigger.Protect(
+                name='protect_version_edits',
+                operation=pgtrigger.Update,
+                condition=pgtrigger.Q(old__version__df=pgtrigger.F('new__version')),
+            ),
+            pgtrigger.Trigger(
+                name='versioned',
+                when=pgtrigger.Before,
+                operation=pgtrigger.Update,
+                func='NEW.version = NEW.version + 1; RETURN NEW;',
+                condition=pgtrigger.Condition('OLD.* IS DISTINCT FROM NEW.*'),
+            ),
+        ]
 
 
 class OfficialInterfaceManager(models.Manager):
@@ -105,12 +114,6 @@ class OfficialInterfaceManager(models.Manager):
         return self.create()
 
 
-@pgtrigger.register(
-    pgtrigger.Protect(
-        name='protect_inserts',
-        operation=pgtrigger.Insert,
-    )
-)
 class OfficialInterface(models.Model):
     """
     This model has inserts protected and can only be created by
@@ -119,27 +122,15 @@ class OfficialInterface(models.Model):
 
     objects = OfficialInterfaceManager()
 
+    class Meta:
+        triggers = [
+            pgtrigger.Protect(
+                name='protect_inserts',
+                operation=pgtrigger.Insert,
+            )
+        ]
 
-@pgtrigger.register(
-    pgtrigger.FSM(
-        name='check_status_transitions',
-        field='status',
-        transitions=(
-            (
-                'unpublished',
-                'published',
-            ),
-            (
-                'unpublished',
-                'inactive',
-            ),
-            (
-                'published',
-                'inactive',
-            ),
-        ),
-    )
-)
+
 class FSM(models.Model):
     """The "status" field can only perform configured transitions during
     updates. Any invalid transitions will result in an error.
@@ -155,6 +146,28 @@ class FSM(models.Model):
         default=Status.UNPUBLISHED,
         max_length=16,
     )
+
+    class Meta:
+        triggers = [
+            pgtrigger.FSM(
+                name='check_status_transitions',
+                field='status',
+                transitions=(
+                    (
+                        'unpublished',
+                        'published',
+                    ),
+                    (
+                        'unpublished',
+                        'inactive',
+                    ),
+                    (
+                        'published',
+                        'inactive',
+                    ),
+                ),
+            )
+        ]
 
 
 @pghistory.track(
