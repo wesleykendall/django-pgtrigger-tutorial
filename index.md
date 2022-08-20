@@ -59,18 +59,16 @@ For example, the ``CannotDelete`` model registers a ``pgtrigger.Protect``
 trigger to protect against deletions:
 
 ```python
-import pgtrigger
-
-
-@pgtrigger.register(
-    pgtrigger.Protect(name='protect_deletes', operation=pgtrigger.Delete)
-)
 class CannotDelete(models.Model):
     """This model cannot be deleted.
 
     The ``pgtrigger.Protect`` trigger protects the deletion operation
     from happening
     """
+    class Meta:
+        triggers = [
+            pgtrigger.Protect(name='protect_deletes', operation=pgtrigger.Delete)
+        ]
 ```
 
 Run this code locally with the following code that tries to delete
@@ -110,15 +108,6 @@ can express many types of protections on models and fields.
 For example, this trigger creates an "append-only" model:
 
 ```python
-import pgtrigger
-
-
-@pgtrigger.register(
-    pgtrigger.Protect(
-      name='append_only',
-      operation=(pgtrigger.Update | pgtrigger.Delete)
-    )
-)
 class AppendOnly(models.Model):
     """This model can only be appended.
 
@@ -126,6 +115,14 @@ class AppendOnly(models.Model):
     from happening, making this an "append-only" model.
     """
     int_field = models.IntegerField()
+
+    class Meta:
+        triggers = [
+            pgtrigger.Protect(
+                name='append_only',
+                operation=pgtrigger.Update | pgtrigger.Delete
+            )
+        ]
 ```
 
 Running this code shows how we can create the model but not update or
@@ -180,16 +177,6 @@ In this example, we've made the "created_at" field be read-only
 by protecting updates only when this field changes.
 
 ```python
-import pgtrigger
-
-
-@pgtrigger.register(
-    pgtrigger.Protect(
-        name='read_only',
-        operation=pgtrigger.Update,
-        condition=pgtrigger.Q(old__created_at__df=pgtrigger.F('new__created_at'))
-    )
-)
 class ReadOnlyField(models.Model):
     """
     The "created_at" field cannot be updated (i.e. a read-only field).
@@ -199,6 +186,15 @@ class ReadOnlyField(models.Model):
     """
     created_at = models.DateTimeField(auto_now_add=True)
     int_field = models.IntegerField()
+
+    class Meta:
+        triggers = [
+            pgtrigger.Protect(
+                name='read_only',
+                operation=pgtrigger.Update,
+                condition=pgtrigger.Q(old__created_at__df=pgtrigger.F('new__created_at'))
+            )
+        ]
 ```
 
 Running this code shows how we are not allowed to update the "created_at"
@@ -247,18 +243,21 @@ to support it. For example, this condition will make `created_at` and
 `int_field` both read-only fields.
 
 ```python
+class ReadOnlyFields(models.Model):
+    created_at = models.DateTimeField(auto_now_add=True)
+    int_field = models.IntegerField()
 
-@pgtrigger.register(
-    pgtrigger.Protect(
-        name='multiple_read_only',
-        operation=pgtrigger.Update,
-        condition=(
-            pgtrigger.Q(old__created_at__df=pgtrigger.F('new__created_at')) |
-            pgtrigger.Q(old__int_field__df=pgtrigger.F('new__int_field'))
-        )
-    )
-)
-class ReadOnlyFields...
+    class Meta:
+        triggers = [
+            pgtrigger.Protect(
+                name='multiple_read_only',
+                operation=pgtrigger.Update,
+                condition=(
+                    pgtrigger.Q(old__created_at__df=pgtrigger.F('new__created_at')) |
+                    pgtrigger.Q(old__int_field__df=pgtrigger.F('new__int_field'))
+                )
+            )
+        ]
 ```
 
 ## Soft-deleting models
@@ -278,16 +277,6 @@ Here's an example of how to configure the `pgtrigger.SoftDelete`
 trigger on a model.
 
 ```python
-import pgtrigger
-
-
-@pgtrigger.register(
-    pgtrigger.SoftDelete(
-        name='soft_delete',
-        field='is_active',
-        value=False
-    )
-)
 class SoftDelete(models.Model):
     """
     This model cannot be deleted. When a user tries to delete it, the
@@ -295,6 +284,15 @@ class SoftDelete(models.Model):
     boolean set to ``False``
     """
     is_active = models.BooleanField(default=True)
+
+    class Meta:
+        triggers = [
+            pgtrigger.SoftDelete(
+                name='soft_delete',
+                field='is_active',
+                value=False
+            )
+        ]
 ```
 
 Running this code shows how we can delete the model using standard
@@ -353,26 +351,6 @@ any time the model is updated. We've also made sure that this field is
 a read-only field so that nobody tries to update the version of the model.
 
 ```python
-import pgtrigger
-
-
-@pgtrigger.register(
-    # Protect anyone editing the version field directly
-    pgtrigger.Protect(
-        name='protect_version_edits',
-        operation=pgtrigger.Update,
-        condition=pgtrigger.Q(old__version__df=pgtrigger.F('new__version'))
-    ),
-    # Increment the version field on changes
-    pgtrigger.Trigger(
-        name='versioned',
-        when=pgtrigger.Before,
-        operation=pgtrigger.Update,
-        func='NEW.version = NEW.version + 1; RETURN NEW;',
-        # Don't increment version on redundant updates.
-        condition=pgtrigger.Condition('OLD.* IS DISTINCT FROM NEW.*')
-    )
-)
 class Versioned(models.Model):
     """
     This model is versioned. The "version" field is incremented on every
@@ -381,6 +359,24 @@ class Versioned(models.Model):
     version = models.IntegerField(default=0)
     char_field = models.CharField(max_length=32)
 
+    class Meta:
+        triggers = [
+            # Protect anyone editing the version field directly
+            pgtrigger.Protect(
+                name='protect_version_edits',
+                operation=pgtrigger.Update,
+                condition=pgtrigger.Q(old__version__df=pgtrigger.F('new__version'))
+            ),
+            # Increment the version field on changes
+            pgtrigger.Trigger(
+                name='versioned',
+                when=pgtrigger.Before,
+                operation=pgtrigger.Update,
+                func='NEW.version = NEW.version + 1; RETURN NEW;',
+                # Don't increment version on redundant updates.
+                condition=pgtrigger.Condition('OLD.* IS DISTINCT FROM NEW.*')
+            )
+        ]
 ```
 
 Given our versioned model, the following code shows how the version
@@ -458,23 +454,12 @@ that the ``OfficialInterface.objects.official_create()`` interface is the only
 method that can be used to create our example model:
 
 ```python
-import pgtrigger
-
-
 class OfficialInterfaceManager(models.Manager):
     @pgtrigger.ignore('tutorial.OfficialInterface:protect_inserts')
-    def official_create(
-        self,
-    ):
+    def official_create(self):
         return self.create()
 
 
-@pgtrigger.register(
-    pgtrigger.Protect(
-        name='protect_inserts',
-        operation=pgtrigger.Insert,
-    )
-)
 class OfficialInterface(models.Model):
     """
     This model has inserts protected and can only be created by
@@ -482,6 +467,14 @@ class OfficialInterface(models.Model):
     """
 
     objects = OfficialInterfaceManager()
+
+    class Meta:
+        triggers = [
+            pgtrigger.Protect(
+                name='protect_inserts',
+                operation=pgtrigger.Insert,
+            )
+        ]
 ```
 
 Let's try to create this model using the standard ``OfficialInterface.objects.create()``
@@ -545,20 +538,6 @@ like so, and it will raise an exception any time there is an invalid transition:
 
 
 ```python
-import pgtrigger
-
-
-@pgtrigger.register(
-    pgtrigger.FSM(
-        name='validate_status_transitions',
-        field='status',
-        transitions=(
-            ('unpublished', 'published'),
-            ('unpublished', 'inactive'),
-            ('published', 'inactive'),
-        )
-    )
-)
 class FSM(models.Model):
     """The "status" field can only perform configured transitions during
     updates. Any invalid transitions will result in an error.
@@ -573,6 +552,19 @@ class FSM(models.Model):
         default=Status.UNPUBLISHED,
         max_length=16
     )
+
+    class Meta:
+        triggers = [
+            pgtrigger.FSM(
+                name='validate_status_transitions',
+                field='status',
+                transitions=(
+                    ('unpublished', 'published'),
+                    ('unpublished', 'inactive'),
+                    ('published', 'inactive'),
+                )
+            )
+        ]
 ```
 
 The following code shows how we can perform valid transitions and how

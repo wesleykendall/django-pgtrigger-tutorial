@@ -1,5 +1,5 @@
-Django==3.1.12
+Django==4.1
 django-extensions==3.0.3
 psycopg2-binary==2.8.5
-django-pgtrigger==2.3.3
-django-pghistory==1.2.1
+django-pgtrigger==4.3.1
+django-pghistory==2.0.0
