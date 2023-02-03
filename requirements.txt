@@ -1,4 +1,4 @@
-Django==4.1
+Django==4.1.6
 django-extensions==3.0.3
 psycopg2-binary==2.8.5
 django-pgtrigger==4.3.1
